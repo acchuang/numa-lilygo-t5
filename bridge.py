@@ -127,9 +127,8 @@ class NumaBridge:
             if not self.ser or not self.serial_connected:
                 return False
             try:
-                line = json.dumps(data, separators=(",", ":")) + "\n"
+                line = "\n" + json.dumps(data, separators=(",", ":")) + "\n"
                 self.ser.write(line.encode("utf-8"))
-                self.ser.flush()
                 return True
             except Exception:
                 self.serial_connected = False
@@ -207,6 +206,23 @@ class NumaBridge:
             self.display_page = p
             self.log_event("BUTTON S4", f"Switched display to {page_names[p]}")
 
+        elif cmd == "reboot":
+            self.reboot_device()
+
+    def reboot_device(self):
+        self.log_event("BUTTON S6 (RST)", "Rebooting LilyGO T5 4.7\" E-Paper display...")
+        self.send_serial_json({"type": "reboot"})
+        with self.lock:
+            if self.ser and self.serial_connected:
+                try:
+                    self.ser.setDTR(False)
+                    self.ser.setRTS(True)
+                    time.sleep(0.1)
+                    self.ser.setRTS(False)
+                except Exception:
+                    pass
+        self.force_next_push = True
+
     def serial_worker(self):
         last_signature = None
         last_push_time = 0.0
@@ -217,7 +233,14 @@ class NumaBridge:
                 port = find_serial_port()
                 if port:
                     try:
-                        s = serial.Serial(port, SERIAL_BAUD, timeout=0.1)
+                        s = serial.Serial()
+                        s.port = port
+                        s.baudrate = SERIAL_BAUD
+                        s.timeout = 0.1
+                        s.write_timeout = 0.5
+                        s.dtr = False
+                        s.rts = False
+                        s.open()
                         with self.lock:
                             self.ser = s
                             self.serial_port = port
@@ -590,6 +613,10 @@ COMPANION_HTML = """<!DOCTYPE html>
             <span>Simulate Sample DNS Traffic</span>
             <kbd>dig :5553</kbd>
           </button>
+          <button class="ctrl" onclick="triggerAction('reboot')">
+            <span>Reboot E-Paper Display</span>
+            <kbd>Button S6 / RST</kbd>
+          </button>
         </div>
       </div>
 
@@ -915,6 +942,8 @@ class BridgeHTTPHandler(BaseHTTPRequestHandler):
                 BRIDGE.handle_device_command({"cmd": "refresh"})
             elif action == "toggle_mode":
                 BRIDGE.handle_device_command({"cmd": "toggle_mode"})
+            elif action == "reboot":
+                BRIDGE.reboot_device()
             elif action == "page":
                 next_page = (BRIDGE.display_page + 1) % TOTAL_PAGES
                 BRIDGE.display_page = next_page

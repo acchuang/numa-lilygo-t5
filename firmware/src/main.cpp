@@ -11,6 +11,8 @@
 #include <ArduinoJson.h>
 #include <Button2.h>
 #include <esp_adc_cal.h>
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 #include "epd_driver.h"
 #include "firasans.h"
@@ -991,6 +993,14 @@ static bool parseBridgePayload(const String &jsonLine) {
         return true;
     }
 
+    if (strcmp(msgType, "reboot") == 0) {
+        showToast("REBOOTING DISPLAY...", 1000);
+        renderDashboard(true);
+        delay(150);
+        ESP.restart();
+        return true;
+    }
+
     if (strcmp(msgType, "state") != 0) return false;
 
     state.connected = true;
@@ -1114,8 +1124,9 @@ static void setupButtons() {
 // ============================================================================
 
 void setup() {
-    Serial.begin(SERIAL_BAUD);
+    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
     Serial.setRxBufferSize(8192);
+    Serial.begin(SERIAL_BAUD);
 
     prefs.begin("numa-epd", false);
     wifiSsid = prefs.getString("ssid", DEFAULT_WIFI_SSID);
@@ -1141,6 +1152,7 @@ void setup() {
 
     // Start Dual-Mode Wi-Fi: Travel Setup AP ("Numa-Travel-DNS" @ 192.168.4.1) + Station
     WiFi.mode(WIFI_AP_STA);
+    WiFi.setTxPower(WIFI_POWER_11dBm);
     WiFi.softAP(TRAVEL_AP_SSID);
     if (wifiSsid.length() > 0) {
         WiFi.begin(wifiSsid.c_str(), wifiPass.c_str());
@@ -1152,6 +1164,7 @@ void setup() {
     setupWebServer();
 
     setupButtons();
+    delay(120);
     renderDashboard(true);
 
     Serial.println("{\"event\":\"boot\",\"board\":\"LILYGO_T5_47_ESP32\",\"mode\":\"hybrid_travel_dns\",\"domains\":202302}");

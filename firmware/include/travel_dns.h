@@ -100,11 +100,11 @@ public:
         String upStr = prefs.getString("upstream", "9.9.9.9");
         upstreamIp.fromString(upStr);
         loadCustomLists(prefs);
-        udpUpstream.begin(55053);
     }
 
     void startServer() {
         if (!running) {
+            udpUpstream.begin(55053);
             udpClient.begin(53);
             running = true;
         }
