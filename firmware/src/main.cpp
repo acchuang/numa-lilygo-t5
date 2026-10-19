@@ -801,17 +801,21 @@ static void sendCommand(const char *cmd, int arg = 0) {
 }
 
 static void toggleAdBlockAction() {
-    bool nextState = !(standaloneState.blocking_enabled && !standaloneState.blocking_paused);
+    const NumaState &cur = activeState();
+    bool nextState = !(cur.blocking_enabled && !cur.blocking_paused);
     standaloneState.blocking_enabled = nextState;
     standaloneState.blocking_paused = false;
     state.blocking_enabled = nextState;
     state.blocking_paused = false;
+    pauseUntilMs = 0;
     showToast(nextState ? ">> AD BLOCKING: ENABLED <<" : ">> AD BLOCKING: DISABLED <<", 2200);
     sendCommand("toggle_blocking", nextState ? 1 : 0);
 }
 
 static void pauseAdBlockAction(int secs = 300) {
+    standaloneState.blocking_enabled = true;
     standaloneState.blocking_paused = true;
+    state.blocking_enabled = true;
     state.blocking_paused = true;
     pauseUntilMs = millis() + (unsigned long)secs * 1000UL;
     showToast(">> AD BLOCKING PAUSED (5 MIN) <<", 2500);
@@ -850,6 +854,7 @@ static void setupWebServer() {
         doc["cached"] = st.q_cached;
         doc["cache_entries"] = st.cache_entries;
         doc["blocking"] = st.blocking_enabled && !st.blocking_paused;
+        doc["paused"] = st.blocking_paused;
         doc["battery_v"] = readBatteryVoltage();
         doc["free_psram_kb"] = ESP.getFreePsram() / 1024;
         JsonArray arr = doc["logs"].to<JsonArray>();
@@ -974,6 +979,18 @@ static bool parseBridgePayload(const String &jsonLine) {
         return true;
     }
 
+    if (strcmp(msgType, "mode") == 0) {
+        forceStandaloneMode = doc["standalone"] | false;
+        if (forceStandaloneMode) {
+            currentPage = 2;
+            showToast(">> MODE: TRAVEL STANDALONE DNS (:53) <<", 2200);
+        } else {
+            showToast(">> MODE: USB-C MAC NUMA BRIDGE <<", 2200);
+        }
+        needsRender = true;
+        return true;
+    }
+
     if (strcmp(msgType, "state") != 0) return false;
 
     state.connected = true;
@@ -1007,6 +1024,8 @@ static bool parseBridgePayload(const String &jsonLine) {
         state.blocking_enabled = bl["enabled"] | true;
         state.blocking_paused  = bl["paused"] | false;
         state.domains_loaded   = bl["domains_loaded"] | HAGEZI_DOMAIN_COUNT;
+        standaloneState.blocking_enabled = state.blocking_enabled;
+        standaloneState.blocking_paused  = state.blocking_paused;
     }
 
     JsonArray logsArr = doc["logs"].as<JsonArray>();
