@@ -1,0 +1,41 @@
+[server]
+bind_addr = "0.0.0.0:5553"
+api_port = 5380
+api_bind_addr = "0.0.0.0"
+data_dir = "/Users/acchuang/Project/numa-lilygo-t5/data"
+
+[upstream]
+mode = "forward"
+
+[blocking]
+enabled = true
+refresh_hours = 24
+lists = [
+    "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/pro-onlydomains.txt",
+]
+
+[cache]
+max_entries = 100000
+min_ttl = 60
+max_ttl = 86400
+warm = ["github.com", "apple.com", "cloudflare.com", "numa.rs"]
+
+[proxy]
+enabled = true
+port = 8080
+tls_port = 8443
+tld = "numa"
+bind_addr = "0.0.0.0"
+
+[[services]]
+name = "epaper"
+target_port = 5381
+
+[dot]
+enabled = false
+
+[lan]
+enabled = true
+
+[mobile]
+enabled = false

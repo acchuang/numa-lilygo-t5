@@ -1,0 +1,13 @@
+# PlatformIO build artifacts
+firmware/.pio/
+.pio/
+
+# Runtime Numa CA keys & logs
+data/
+*.log
+
+# Python / OS artifacts
+__pycache__/
+*.pyc
+.DS_Store
+.env

@@ -1,0 +1,5 @@
+.vscode
+.pio
+test
+build
+secrets.h
